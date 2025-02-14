@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Rubro, SubRubro, CentroCostos, Presupuesto, PresupuestoTotal, Auxiliar, PresupuestoActualizado, PresupuestoMes, PresupuestoProyectado
+from .models import Rubro, SubRubro, CentroCostos, Presupuesto, Auxiliar, PresupuestoActualizado, PresupuestoMes, PresupuestoProyectado, PresupuestoEjecutado, PresupuestoEjecutadoMes
 from usuario.models import CustomUser, UEN, Regional
-from rest_framework import serializers
+# from rest_framework import serializers
 
 class AuxiliarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -87,29 +87,57 @@ class PresupuestoSerializer(serializers.ModelSerializer):
         if request and request.method == 'GET':
             data.pop('monthlyTotals', None)
             data.pop('rubrosTotals', None)
+            data.pop('updatedRubros', None)
+            data.pop('item', None)
+            data.pop('usuario', None)
+        return data
+
+# Ejecutado  
+class PresupuestoEjecutadoMesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PresupuestoEjecutadoMes
+        fields = ['meses', 'presupuestomes']
+             
+class HistorialPresupuestoEjecutadoSerializer(serializers.ModelSerializer):
+    usuario = UsuarioSerializer(read_only=True)
+    meses_presupuesto = PresupuestoEjecutadoMesSerializer(many=True)
+    uen = UENSerializer(read_only=True)
+    cuenta = serializers.SlugRelatedField(queryset=CentroCostos.objects.all(), slug_field='codigo')
+
+    class Meta:
+        model = PresupuestoEjecutado
+        fields = ['id', 'usuario', 'cuenta', 'uen', 'rubro', 'subrubro', 'auxiliar', 'item', 'fecha', 'updatedRubros', 'rubrosTotals', 'monthlyTotals', 'meses_presupuesto']
+       
+class PresupuestoEjecutadoSerializer(serializers.ModelSerializer):
+    uen = serializers.SlugRelatedField(queryset=UEN.objects.all(), slug_field='nombre')
+    meses_presupuesto = PresupuestoEjecutadoMesSerializer(many=True)
+    usuario = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+    cuenta = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PresupuestoEjecutado
+        fields = [
+            'usuario', 'cuenta', 'uen', 'rubro', 'subrubro', 'auxiliar',
+            'item', 'fecha', 'updatedRubros', 'rubrosTotals', 'monthlyTotals', 'meses_presupuesto'
+        ]
+        
+    def get_cuenta(self, obj):
+        return {
+            'codigo': obj.cuenta.codigo,
+            'nombre': obj.cuenta.nombre,
+            'regional': obj.cuenta.regional.nombre
+        }       
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.method == 'GET':
+            data.pop('monthlyTotals', None)
+            data.pop('rubrosTotals', None)
             data.pop('item', None)
             data.pop('usuario', None)
         return data
                 
-# class InformeDetalladoPresupuestoSerializer(serializers.ModelSerializer):
-#     uen = serializers.SlugRelatedField(queryset=UEN.objects.all(), slug_field='nombre')
-#     meses_presupuesto = PresupuestoProyectadoSerializer(many=True)
-#     usuario = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
-#     cuenta = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = PresupuestoActualizado
-#         fields = [
-#             'usuario', 'cuenta', 'uen', 'rubro', 'subrubro', 'auxiliar',
-#             'item', 'fecha', 'updatedRubros', 'rubrosTotals', 'monthlyTotals', 'meses_presupuesto'
-#         ]
-        
-#     def get_cuenta(self, obj):
-#         return {
-#             'codigo': obj.cuenta.codigo,
-#             'nombre': obj.cuenta.nombre,
-#             'regional': obj.cuenta.regional.nombre
-#         }
 
 # Actualizado
 class PresupuestoMesSerializer(serializers.ModelSerializer):
@@ -136,7 +164,17 @@ class PresupuestoActualizadoSerializer(serializers.ModelSerializer):
             'nombre': obj.cuenta.nombre,
             'regional': obj.cuenta.regional.nombre
         }
-
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.method == 'GET':
+            data.pop('monthlyTotals', None)
+            data.pop('rubrosTotals', None)
+            data.pop('item', None)
+            data.pop('usuario', None)
+        return data
+    
 class HistorialPresupuestoActualizadoSerializer(serializers.ModelSerializer):
     usuario = UsuarioSerializer(read_only=True)
     meses_presupuesto = PresupuestoMesSerializer(many=True)
@@ -146,8 +184,3 @@ class HistorialPresupuestoActualizadoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PresupuestoActualizado
         fields = ['id', 'usuario', 'cuenta', 'uen', 'rubro', 'subrubro', 'auxiliar', 'item', 'fecha', 'updatedRubros', 'rubrosTotals', 'monthlyTotals', 'meses_presupuesto']
-           
-class PresupuestoTotalSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PresupuestoTotal
-        fields = '__all__'

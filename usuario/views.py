@@ -19,7 +19,7 @@ def LoginView(request):
         user.save()
         token, created = Token.objects.get_or_create(user=user)
         
-        user_type = 'admin' if user.is_superuser else 'user'
+        user_type = 'admin' if user.is_active else 'user'
         return Response({
             'token': token.key,
             'first_name': user.first_name,

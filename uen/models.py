@@ -63,10 +63,10 @@ class PresupuestoActualizado(models.Model):
     fecha = models.DateField(default=timezone.now)
 
     def save(self, *args, **kwargs):
-        if self.usuario and self.usuario.email == 'duvan@hotmail.com':
+        if self.usuario and self.usuario.email == '':
             self.fecha = timezone.now().date()
         else:
-            self.fecha = timezone.now().replace(year=timezone.now().year + 1)
+            self.fecha = timezone.now().replace(year=timezone.now().year)
 
         super(PresupuestoActualizado, self).save(*args, **kwargs)
 
@@ -108,7 +108,7 @@ class Presupuesto(models.Model):
             self.fecha = timezone.now().date()
             logger.info(f"Fecha guardada como actual para {self.usuario.email}")
         else:
-            self.fecha = self.fecha.replace(year=timezone.now().year + 1)
+            self.fecha = self.fecha.replace(year=timezone.now().year)
             logger.info(f"Fecha guardada como siguiente año para {self.usuario.email}")
 
         super(Presupuesto, self).save(*args, **kwargs)
@@ -124,19 +124,37 @@ class PresupuestoProyectado(models.Model):
 
     def __str__(self):
         return f"Presupuesto {self.presupuesto.id} - Mes {self.meses} - Monto {self.presupuestomes}"
-       
-class PresupuestoTotal(models.Model):
-    cuenta = models.ForeignKey(CentroCostos, related_name="PresupuestoTotales", on_delete=models.SET_NULL, null=True, blank=True)
-    rubro = models.ForeignKey(Rubro, related_name="PresupuestoTotal", on_delete=models.CASCADE, null=True, blank=True)
-    subrubro = models.ForeignKey(SubRubro, related_name="PresupuestoTotales", on_delete=models.CASCADE, null=True, blank=True)
-    auxiliar = models.ForeignKey(Auxiliar, related_name="PresupuestoTotales", on_delete=models.CASCADE, null=True, blank=True)
-    fecha = models.DateField(default=timezone.now)  
-    proyectado = models.BigIntegerField(default=0)  
-    ejecutado = models.BigIntegerField(default=0, null=True, blank=True)
+    
 
-    def diferencia(self):
-        """Calcula la diferencia entre el valor proyectado y el ejecutado."""
-        return self.proyectado - (self.ejecutado or 0)  # Considerar 0 si ejecutado es None
+class PresupuestoEjecutado(models.Model):
+    usuario = models.ForeignKey(CustomUser, related_name="presupuesto_ejecutado", on_delete=models.CASCADE, null=True, blank=True)
+    cuenta = models.ForeignKey(CentroCostos, related_name="presupuestos_ejecutado", on_delete=models.SET_NULL, null=True, blank=True)
+    uen = models.ForeignKey(UEN, related_name="presupuestos_ejecutado", on_delete=models.SET_NULL, null=True, blank=True)
+    rubro = models.IntegerField()
+    subrubro = models.IntegerField()
+    auxiliar = models.IntegerField(default=0)
+    item = models.IntegerField()
+    updatedRubros = models.JSONField(null=True, blank=True)
+    monthlyTotals = models.JSONField(null=True, blank=True)
+    rubrosTotals = models.JSONField(null=True, blank=True)
+    fecha = models.DateField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if self.usuario and self.usuario.email == '':
+            self.fecha = timezone.now().date()
+        else:
+            self.fecha = timezone.now().replace(year=timezone.now().year)
+
+        super(PresupuestoEjecutado, self).save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.cuenta} - {self.rubro} - {self.subrubro} - {self.auxiliar} - ({self.fecha})"
+        return f"Presupuesto {self.cuenta} - Fecha {self.fecha}"
+
+
+class PresupuestoEjecutadoMes(models.Model):
+    presupuesto = models.ForeignKey(PresupuestoEjecutado, related_name="meses_presupuesto", on_delete=models.CASCADE)
+    meses = models.IntegerField()
+    presupuestomes = models.DecimalField(max_digits=20, decimal_places=0, default=0.00)
+
+    def __str__(self):
+        return f"Presupuesto {self.presupuesto.id} - Mes {self.meses} - Monto {self.presupuestomes}"
